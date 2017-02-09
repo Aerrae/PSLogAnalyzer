@@ -93,40 +93,33 @@ def handle_logfile(logfile):
     re.MULTILINE = True
     re.DOTALL = True
     print(count)
-    pattern = ".*[*]+.*.*[*]+"
+    pattern = "^.*[*]+.*.*[*]+"
 
-    #print(data)
-    
-    #zip for convenience, room for optimization
-    
+
     for data2 in data:
 
-        hand = re.split(pattern,data2)
+        hand = re.split(pattern,data2.replace("*** HOLE CARDS ***",""))
         dataheaders = ["*** Initial state ***"]
         dataheaders.extend(re.findall(pattern,data2))
-        #print(hand)
+        for line in hand:
+            if line:
+                print(line.strip())
         for splitted in zip(hand,dataheaders):
-        #    print(splitted)
-            lista = ["*** Initial state ***","*** HOLE CARDS ***","*** FLOP ***","*** TURN ***","*** RIVER ***","*** SHOW DOWN ***", "*** SUMMARY ***"]
-            gamestatefunc = [handle_initial_state,handle_hole_cards, handle_flop, handle_turn, handle_river, handle_showdown,handle_summary]
-            if "SHOW" in splitted[1]:
-                print(splitted[1])
+            lista = ["*** Initial state ***","*** FLOP ***","*** TURN ***","*** RIVER ***","*** SHOW DOWN ***", "*** SUMMARY ***"]
+            gamestatefunc = [handle_initial_state, handle_flop, handle_turn, handle_river, handle_showdown,handle_summary]
             if splitted[1] in lista:
                 print(splitted[1])
                 gamestatefunc[lista.index(splitted[1])](splitted[0])
-            #if "SUMMARY" in splitted[1]:
-                
-            #elif  in splitted[1]:
-                
+
     for player in playerdb:
-        print(player.name + ": " + str(player.gains))
+        print(player.name + ": % .2f" %( player.gains))
             
 def handle_initial_state(data):
-    #print(data)
     global playerdb
     list_data = data.split('\n')
     #first line contains hand nr
     hand_nr = list_data[0][list_data[0].index('#')+1:list_data[0].index(':')]
+    
     for line in list_data:
         
         if line.startswith('Seat'):
@@ -136,44 +129,26 @@ def handle_initial_state(data):
             if player in players:
                 playerdb[players.index(player)].add_hand_nr(hand_nr)
             else:
-                print("new player " + player + " added")
                 playerdb.append(Player(player,hand_nr))
-        #filter empty lines
-        elif line:
-            if "posts" in line.split()[1]:
-                1+1
-                bet_handler(line)
+
+    handle_round(list_data[1:])
             
-            
-                
-                
-                
+
 def handle_hole_cards(data):
     hand = data.split('\n')
-    #print("holecard handler")
     if len(hand) > 1:
         handle_round(hand[1:])
     for line in hand:
         if line.startswith("Dealt to "):
-            
             dealthand = line[-6:-1].split()
-        else:
-            bet_handler(line)
-            #print(dealthand)
-        
-    
-    
+
 def handle_flop(data):
     """Assumes first line contains flop cards as is in the logfile"""
-    hand = data.split('\n')
-    
+    print('flop')
+    hand = data.split('\n')  
     cards = hand[0].strip()[1:-1].split()
-    print("data")
-    print(data)
     if len(hand) > 1:
         handle_round(hand[1:])
-        #print(cards)
-    #print("flophandler")
     
 def handle_turn(data):
     """Assumes first line contains turn cards as is in the logfile, takes only the card added"""
@@ -194,61 +169,47 @@ def handle_river(data):
     #print(cards)
     #print("riverhandler")            
 def handle_round(data):
+    #print("data")
+    #print(data)
     round_actions = []
     for line in data:
         bet = bet_handler(line)
         if bet[0]:
             round_actions.append(bet)
     
-    raises = ['raises','bets']
+    raises = ['raises','bets','posts']
     for action in round_actions:
         if action[2] == 'raises':
             latest = len(round_actions)
             for action2 in round_actions[:round_actions.index(action)]:
+                #print(action2)
                 if action[0] == action2[0]:
                     latest = round_actions.index(action2)
             current_pot = 0
             for action2 in round_actions[latest:round_actions.index(action)]:
-                if action2[2] in raises:
+                if action2[2] in raises and action[0] == action2[0]:
                     current_pot += action2[1]
-            
             update_bet_status(action[0],action[1]-current_pot)
                     
-                    
-                
-                
         else:
+            print(action)
             update_bet_status(action[0],action[1])
 def handle_showdown(data):
     global playerdb
-    print("showdown")
+    #print("showdown")
     hand = data.split('\n')
-    consecutive_bets = {}
+    
     if len(hand) > 1:
         handle_round(hand[1:])
-#    for line in hand:
- #       if 'collected' in line:
-  #          1+1
 
     
 def handle_summary(data):
+    """no longer required"""
     player_idx = 2
     reward_idx = -1
     hand = data.split('\n')
     
-    #print("summaryhandler")
-    for line in hand:
-        if "Seat" in line:
-            player = line.split()[2]
-            #print(player)
-            if 'collected' in line:
-                1+1
-                #amt_gained = float(line.split()[reward_idx][2:-1])
-                #playerdb[[x.name for x in playerdb].index(player)].gain(amt_gained)
-                #print("player "+line.split()[player_idx]+" gained: " +str(amt_gained))
-        elif "Board" in line:
-            cards = line[line.index('[')+1:-1].split()
-            print(cards)
+
                 
 
 def bet_handler(line):
@@ -256,11 +217,9 @@ def bet_handler(line):
     line = line.split()
     sign = -1
     
-    print("bet handler")
     if not line:
-        print("empty line")
+        #print("empty line")
         return None, None
-    print(line)
     
     if "collected" in line[1]:
         player_idx = 0
@@ -272,17 +231,21 @@ def bet_handler(line):
         player_idx = -1
         reward_idx = 2
         sign = 1
-        line[2] = line[2][2:-1]
+        line[2] = line[2][1:-1]
         action = "Uncalled bet"
     elif "posts" in line[1]:
         player_idx = 0
         reward_idx = -1
         action = "posts"
-    elif line[1].strip() in ["bets","raises","calls"]:
+    elif line[1].strip() in ["bets","calls"]:
         player_idx = 0
         reward_idx = 2
         action = line[1].strip()
-
+    elif line[1].strip() in ['raises']:
+        #print(line)
+        player_idx = 0
+        reward_idx = 4
+        action = line[1].strip()
     else:
         return None, None, None
         
@@ -292,22 +255,20 @@ def bet_handler(line):
     return (player,amt_gained,action)
         
 def update_bet_status(player,amt_gained):
+    
     playerdb[[x.name for x in playerdb].index(player)].gain(amt_gained)
-    print("player "+player+" gained: " +str(amt_gained))
+    print("player "+player+" gained: % .2f" %( amt_gained))
 
 def main(argv):
     if len(argv) > 0:
         logfolder = argv[0]
     else:
         logfolder = r'C:/Users/Aerrae/AppData/Local/PokerStars.EU/HandHistory/Velinektori/'
-    #print(data[1])        
-            
 
-    #
-    
     list_of_files = os.listdir(logfolder)
+    #list_of_files = ['C:/Users/Aerrae/Desktop/HH20170202 Claudia III - $0.01-$0.02 - USD No Limit Hold'"'"'em.txt']
     for logfile in list_of_files:
-        handle_logfile(logfolder+logfile)
+        handle_logfile(logfolder +logfile)#logfile)
         
         
 if __name__ == "__main__":
