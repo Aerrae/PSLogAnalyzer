@@ -50,18 +50,18 @@ class Player():
         
     
     def actions(self,gamestate):
-        print("action: " + gamestate)
+        #print("action: " + gamestate)
         if "Initial state" in gamestate:
-            print("adding init state")
+            #print("adding init state")
             self.preflop_actions += 1
         elif "FLOP" in gamestate:
-            print("flop")
+            #print("flop")
             self.reached_flop += 1
         elif "TURN" in gamestate:
-            print("turn")
+            #print("turn")
             self.reached_turn += 1
         elif "RIVER" in gamestate:
-            print("river")
+            #print("river")
             self.reached_river += 1
         
     
@@ -75,35 +75,12 @@ class Player_action:
         self.amount = amount
         self.action = action
     
-
-
-
-class Poker_hand:
-    def __init__(self,hand_nr,preflop,flop,turn,river):
-        self.hand_nr = hand_nr
-        self.preflop = Preflop(preflop)
-        self.flop = Flop(flop)
-        self.turn = Turn(turn)
-        self.river = River(river)
-class Turn:
-    def __init__(self,cards):
-        self.cards = cards
-
-class Flop:
-    def __init__(self,cards):
-        self.cards = cards
-
-class River:
-    def __init__(self,cards):
-        self.cards = cards
-        
-class Preflop:
-    def __init__(self, cards):
-        self.cards = cards
+#class Poker_hand:
+#    def __init__(self,hand_nr,preflop,flop,turn,river):
+#        self.hand_nr = hand_nr
 
 
 def handle_logfile(logfile):
-
     global playerdb
     handle = open(logfile,'r')
     hand_nr = 0
@@ -132,16 +109,17 @@ def handle_logfile(logfile):
             gamestatefunc = [handle_initial_state]+ [handle_postflop]*4+[handle_summary]
             
             if splitted[1] in gamestates:
-                print(splitted[1])
-                print(gamestatefunc[gamestates.index(splitted[1])].__name__)
+                #print(splitted[1])
+                #print(gamestatefunc[gamestates.index(splitted[1])].__name__)
                 
                 gamestatefunc[gamestates.index(splitted[1])](splitted[0],gamestates[gamestates.index(splitted[1])])
     
     def getKey(player):
         return player.name
     for player in sorted(playerdb,key=getKey):
-        print(player.name + " player gains: {0:.2f} preflop_activity {1:.2f}, flop {2:.2f} turn: {3:.2f}, river {4:.2f},".format( player.gains, player.calc_activity(), \
-        player.calc_flop_activity(),player.calc_turn_activity(),player.calc_river_activity()))      
+        print("player "+player.name + " has gained: {0:.2f}, preflop_activity {1:.2f}, flop {2:.2f} turn: {3:.2f}, river {4:.2f},".format( player.gains, player.calc_activity(), \
+        player.calc_flop_activity(),player.calc_turn_activity(),player.calc_river_activity()))   
+        
 def handle_initial_state(data, gamestate):
     global playerdb
     list_data = data.split('\n')
@@ -173,7 +151,7 @@ def handle_round(data, gamestate):
         if bet:
             round_actions.append(bet)
     raises = ['raises','bets','posts']
-    print(round_actions)
+    #print(round_actions)
     for action in round_actions:
         if action[2] == 'raises':
             latest = len(round_actions)
@@ -190,7 +168,7 @@ def handle_round(data, gamestate):
         
         
     active_players = set([x[0] for x in round_actions if x[2] != 'posts'])
-    print(active_players)
+    #print(active_players)
     for player in active_players:
         playerdb[[x.name for x in playerdb].index(player)].actions(gamestate)
             
@@ -211,7 +189,7 @@ def bet_handler(line):
     sign = -1
     #print(line)
     if not line:
-        print("none")
+        #print("none")
         return None
     
     if "collected" in line[1]:
@@ -239,7 +217,7 @@ def bet_handler(line):
         reward_idx = 4
         action = line[1].strip()
     else:
-        print("none")
+        #print("none")
         return None
         
     player = line[player_idx].strip().replace(":","")
@@ -250,18 +228,24 @@ def bet_handler(line):
 def update_bet_status(player,amt_gained):
     
     playerdb[[x.name for x in playerdb].index(player)].gain(amt_gained)
-    print("player "+player+" gained: % .2f" %( amt_gained))
+    #print("player "+player+" gained: % .2f" %( amt_gained))
 
 def main(argv):
     if len(argv) > 0:
         logfolder = argv[0]
     else:
-        logfolder = r'C:/Users/Aerrae/AppData/Local/PokerStars.EU/HandHistory/Velinektori/'
+        logfolder = None #r'C:/Users/Aerrae/AppData/Local/PokerStars.EU/HandHistory/Velinektori/'
+        
+    if not logfolder:
+        print("No logfolder given, please edit the file or add as argument")
+        print("Usage: python pokertest.py logfolder")
+        sys.exit()
 
     list_of_files = os.listdir(logfolder)
     #list_of_files = ['C:/Users/Aerrae/Desktop/HH20170202 Claudia III - $0.01-$0.02 - USD No Limit Hold'"'"'em.txt']
     for logfile in list_of_files:
         handle_logfile(logfolder +logfile)#logfile)
+        
         
         
 if __name__ == "__main__":
