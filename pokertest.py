@@ -12,8 +12,6 @@ import sys
 
 
 playerdb = []
-
-
 class Player():
     def __init__(self,player_name,hand_nr):
         self.name = player_name
@@ -38,8 +36,35 @@ class Player():
         #associated hands can't be zero and players without association to any hand shouldn't be added
         return self.gains/len(self.associated_hands)
         
-    def calc_activitiy(self):
+    def calc_activity(self):
         return self.preflop_actions/len(self.associated_hands)
+    
+    def calc_flop_activity(self):
+        return self.reached_flop/len(self.associated_hands)
+        
+    def calc_turn_activity(self):
+        return self.reached_turn/len(self.associated_hands)
+        
+    def calc_river_activity(self):
+        return self.reached_river/len(self.associated_hands)
+        
+    
+    def actions(self,gamestate):
+        print("action: " + gamestate)
+        if "Initial state" in gamestate:
+            print("adding init state")
+            self.preflop_actions += 1
+        elif "FLOP" in gamestate:
+            print("flop")
+            self.reached_flop += 1
+        elif "TURN" in gamestate:
+            print("turn")
+            self.reached_turn += 1
+        elif "RIVER" in gamestate:
+            print("river")
+            self.reached_river += 1
+        
+    
     
 
 
@@ -110,20 +135,19 @@ def handle_logfile(logfile):
                 print(splitted[1])
                 print(gamestatefunc[gamestates.index(splitted[1])].__name__)
                 
-                gamestatefunc[gamestates.index(splitted[1])](splitted[0])
-
-    for player in playerdb:
-        print(player.name + ": % .2f" %( player.gains))
-            
-def handle_initial_state(data):
+                gamestatefunc[gamestates.index(splitted[1])](splitted[0],gamestates[gamestates.index(splitted[1])])
+    
+    def getKey(player):
+        return player.name
+    for player in sorted(playerdb,key=getKey):
+        print(player.name + " player gains: {0:.2f} preflop_activity {1:.2f}, flop {2:.2f} turn: {3:.2f}, river {4:.2f},".format( player.gains, player.calc_activity(), \
+        player.calc_flop_activity(),player.calc_turn_activity(),player.calc_river_activity()))      
+def handle_initial_state(data, gamestate):
     global playerdb
     list_data = data.split('\n')
     temp_hand = re.search("PokerStars Hand #(\d*)",list_data[0])
     
     hand_nr = temp_hand.group(1)
-    
-    #first line contains hand nr
-     #= list_data[0][list_data[0].index('#')+1:list_data[0].index(':')]
     for line in list_data:
         if line.startswith('Seat'):
             player = line.split()[2].strip()
@@ -132,28 +156,17 @@ def handle_initial_state(data):
                 playerdb[players.index(player)].add_hand_nr(hand_nr)
             else:
                 playerdb.append(Player(player,hand_nr))
-    handle_round(list_data[1:])
+    handle_round(list_data[1:], gamestate)
 
-def handle_postflop(data):
+def handle_postflop(data, gamestate):
     hand = data.split('\n')
-    print("------------hand: " + hand[0])
     cards = re.findall("([0-9ATJQK]+[cdhs])",hand[0])
-    print(hand)
     if len(hand) > 1:
-        print("handle round")
-        handle_round(hand[1:])
+        handle_round(hand[1:], gamestate)
            
-def handle_hole_cards(data):
-    hand = data.split('\n')
-    if len(hand) > 1:
-        handle_round(hand[1:])
-    for line in hand:
-        if line.startswith("Dealt to "):
-            dealthand = line[-6:-1].split()
-       
-
         
-def handle_round(data):
+def handle_round(data, gamestate):
+    #print(gamestate)
     round_actions = []
     for line in data:
         bet = bet_handler(line)
@@ -174,13 +187,19 @@ def handle_round(data):
             update_bet_status(action[0],action[1]-current_pot)
         else:
             update_bet_status(action[0],action[1])
+        
+        
+    active_players = set([x[0] for x in round_actions if x[2] != 'posts'])
+    print(active_players)
+    for player in active_players:
+        playerdb[[x.name for x in playerdb].index(player)].actions(gamestate)
             
-def handle_showdown(data):
+def handle_showdown(data, gamestate):
     hand = data.split('\n')
     if len(hand) > 1:
-        handle_round(hand[1:])
+        handle_round(hand[1:], gamestate)
 
-def handle_summary(data):
+def handle_summary(data, gamestate):
     """no longer required"""
     player_idx = 2
     reward_idx = -1
@@ -190,7 +209,7 @@ def bet_handler(line):
     global playerdb
     line = line.split()
     sign = -1
-    print(line)
+    #print(line)
     if not line:
         print("none")
         return None
